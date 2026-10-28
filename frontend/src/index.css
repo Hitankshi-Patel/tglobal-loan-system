@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #f3fbf6;
+    color: #1a2721;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom organic blob shape */
+.mint-blob {
+  border-radius: 48% 52% 43% 57% / 54% 46% 54% 46%;
+  background: radial-gradient(circle at 60% 40%, #c4ebd7 0%, #dbf3e6 60%, #edf8f2 100%);
+  filter: blur(2px);
+}
+
+/* Subtle jewelry blend */
+.jewelry-container {
+  mask-image: radial-gradient(ellipse 90% 85% at 50% 50%, black 70%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 85% at 50% 50%, black 70%, transparent 100%);
+}

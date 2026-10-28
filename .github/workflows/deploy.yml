@@ -1,0 +1,94 @@
+name: Safety Backup & Production Deployment
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # ─── Step 1: Pre-Deployment Database Safety Backup ──────────────────────────
+  backup-database:
+    name: 🛡️ Pre-Deploy Database Backup
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL Client Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client gzip
+
+      - name: Make Scripts Executable
+        run: chmod +x scripts/*.sh
+
+      - name: Execute Database Safety Snapshot
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_DIR: ./backups
+        run: ./scripts/backup-db.sh
+
+      - name: Upload Snapshot as Secure Artifact (30 Days Retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-safety-backup-${{ github.sha }}
+          path: backups/*.sql.gz
+          retention-days: 30
+
+  # ─── Step 2: Deploy to Production VPS ──────────────────────────────────────
+  deploy-to-vps:
+    name: 🚀 Deploy to VPS via Docker Compose
+    needs: backup-database
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+      - name: Execute Remote Deployment via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            echo "🚀 Connecting to production server..."
+            DEPLOY_PATH="/opt/tglobal-loan-system"
+
+            if [ ! -d "$DEPLOY_PATH" ]; then
+              echo "Directory $DEPLOY_PATH does not exist. Creating and cloning..."
+              sudo mkdir -p "$DEPLOY_PATH"
+              sudo chown -R $USER:$USER "$DEPLOY_PATH"
+              git clone https://github.com/${{ github.repository }}.git "$DEPLOY_PATH"
+            fi
+
+            cd "$DEPLOY_PATH"
+
+            echo "📥 Pulling latest code from main branch..."
+            git fetch --all
+            git reset --hard origin/main
+
+            echo "🐳 Building and starting Docker containers..."
+            docker compose down --remove-orphans || true
+            docker compose up -d --build
+
+            echo "🩺 Running healthcheck..."
+            sleep 10
+            for i in {1..6}; do
+              if curl -f http://localhost:5000/api/v1/loan-schemes > /dev/null 2>&1; then
+                echo "✅ Backend API is healthy and responding!"
+                break
+              fi
+              echo "Waiting for backend service to become healthy ($i/6)..."
+              sleep 5
+            done
+
+            if ! curl -f http://localhost:5000/api/v1/loan-schemes > /dev/null 2>&1; then
+              echo "❌ ERROR: Backend healthcheck failed after deployment!"
+              echo "⚠️  Consider running ./scripts/restore-db.sh to revert database if needed."
+              exit 1
+            fi
+
+            echo "🎉 Deployment completed successfully!"

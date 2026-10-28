@@ -1,0 +1,60 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model LoanScheme {
+  id                 String   @id
+  name               String
+  interestRateAnnual Float
+  maxLtv             Float
+  tenureMonths       Int
+  tenureDescription  String
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  leads              Lead[]
+
+  @@map("loan_schemes")
+}
+
+model Lead {
+  applicationId     String     @id
+  fullName          String
+  mobileNumber      String
+  grossWeightGrams  Decimal    @db.Decimal(8, 2)
+  netWeightGrams    Decimal    @db.Decimal(8, 2)
+  karat             Int
+  planId            String
+  plan              LoanScheme @relation(fields: [planId], references: [id])
+  pureGoldGrams     Decimal    @db.Decimal(8, 2)
+  goldValuePaise    BigInt
+  eligibleLoanPaise BigInt
+  status            String     @default("SUBMITTED") // SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED
+  idempotencyKey    String?    @unique
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  auditLogs         AuditLog[]
+
+  @@index([mobileNumber, createdAt])
+  @@map("leads")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  leadId         String
+  lead           Lead     @relation(fields: [leadId], references: [applicationId], onDelete: Cascade)
+  previousStatus String?
+  newStatus      String
+  note           String?
+  changedBy      String   @default("SYSTEM")
+  createdAt      DateTime @default(now())
+
+  @@index([leadId])
+  @@map("audit_logs")
+}

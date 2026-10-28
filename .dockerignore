@@ -1,0 +1,49 @@
+# Git & VCS
+.git
+.gitignore
+.github
+
+# Dependencies
+**/node_modules
+**/.pnp
+**/.pnp.js
+
+# Environment variables
+**/.env
+**/.env.*
+!**/.env.example
+
+# Build & Dist
+**/dist
+**/build
+**/.tsbuildinfo
+
+# Logs & Debug
+**/logs
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Database & Backups
+backups/
+*.sql
+*.sql.gz
+*.dump
+prisma/*.db
+
+# IDE & Editor files
+.vscode
+.idea
+*.swp
+*.DS_Store
+Thumbs.db
+
+# Documentation & Temp artifacts
+pdf_full.txt
+pdf_text.txt
+pdf_text2.txt
+extract_pdf.py
+*.pdf
+.tempmediaStorage
+.system_generated
+scratch
